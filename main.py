@@ -2,9 +2,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import yt_dlp
 import os
-import asyncio
 from datetime import datetime
-
 
 # Retrieve bot token from environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -21,19 +19,17 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     try:
         await update.message.reply_text("Downloading video, please wait...")
-        # Set up yt-dlp options
+
+        # Prepare file name with date, time, and title
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ydl_opts = {
-            'format': 'best',               # Choose the best quality format
+            'format': 'best',
+            'outtmpl': f'{timestamp}_%(title).50s.%(ext)s',  # Save with timestamp and first 50 characters of title
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            title = info.get('title', 'video')[:50].replace(' ', '_')  # Get first 50 characters of title
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            file_name = f"{timestamp}_{title}.mp4"
-            ydl.download([url])
-            downloaded_file = ydl.prepare_filename(info)
-            os.rename(downloaded_file, file_name)  # Rename the file with datetime and trimmed title
+            file_name = ydl.prepare_filename(info)  # Get the generated file name
 
         # Send the downloaded video
         with open(file_name, 'rb') as video:
@@ -54,15 +50,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
 
     # Start the bot
-    try:
-        asyncio.run(app.run_polling())
-    except RuntimeError as e:
-        # Handle cases where the event loop is already running
-        if "Cannot close a running event loop" in str(e):
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(app.run_polling())
-        else:
-            raise
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
