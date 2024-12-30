@@ -3,6 +3,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import yt_dlp
 import os
 import asyncio
+from datetime import datetime
+
 
 # Retrieve bot token from environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -19,16 +21,19 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     try:
         await update.message.reply_text("Downloading video, please wait...")
-
         # Set up yt-dlp options
         ydl_opts = {
-            'outtmpl': '%(title)s.%(ext)s',  # Output file format
             'format': 'best',               # Choose the best quality format
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            file_name = ydl.prepare_filename(info)
+            title = info.get('title', 'video')[:50].replace(' ', '_')  # Get first 50 characters of title
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}_{title}.mp4"
+            ydl.download([url])
+            downloaded_file = ydl.prepare_filename(info)
+            os.rename(downloaded_file, file_name)  # Rename the file with datetime and trimmed title
 
         # Send the downloaded video
         with open(file_name, 'rb') as video:
